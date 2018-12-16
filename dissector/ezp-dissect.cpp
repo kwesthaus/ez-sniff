@@ -58,6 +58,9 @@ bool argExists(char** ppcBegin, char** ppcEnd, string sOption);
 // If a string exists in the command line arguments, get its accompanying value
 string getArg(char** ppcBegin, char** ppcEnd, string sOption);
 
+// Calculates and returns CRC for first 240 bits of a packet
+uint16_t calcPacketCRC(uint256_t uPacket);
+
 // Evaluates a packet's CRC and prompts user to continue or quit if CRC is wrong
 bool checkPacketCRC(uint256_t uPacket);
 
@@ -416,29 +419,29 @@ void dispPacket(uint256_t uPacket)
 	// Output calculated values with pretty data field headers
 	cout << "*** Begin Packet ***" << endl << endl;
 
-	cout << "*** Section 1: CRC ***" << endl;
-	cout << "\tCRC (in hex): " << hex << showbase << uCRC << dec << endl;
-	cout << "*** End Section 1: CRC ***" << endl << endl;
-
-	cout << "*** Section 2: Reader Programmable ***" << endl;
-	cout << "\tProgrammable Block 2: " << endl << "\t\tDecimal: " << uProg2 << endl << "\t\tHex: " << hex << uProg2 << dec << endl << "\t\tBinary: " << bitset<40>(uProg2) << endl;
-	cout << "\tHOV and Feedback Flags: " << unsigned(uHovFeed) << endl;
-	cout << "\tProgrammable Block 1 and Agency Fixed: " << endl << "\t\tDecimal: " << uProg1_AgFix_Comb << endl;
+	cout << "*** Section 1: Factory Fixed ***" << endl;
+	cout << "\tHeader: " << unsigned(uHeader) << endl;
+	cout << "\tTag Type: " << mTagType[ unsigned(uTagType) ] << " (" << unsigned(uTagType) << ")" << endl;
+	cout << "\tApplication ID: " << mApplicationID[ unsigned(uAppID) ] << " (" << unsigned(uAppID) << ")" << endl;
+	cout << "\tGroup ID: " << mGroupID[ unsigned(uGrpID) ] << " (" << unsigned(uGrpID) << ")" << endl;
+	cout << "\tAgency ID: " << mAgencyID[ unsigned(uAgID) ] << " (" << unsigned(uAgID) << ")" << endl;
+	cout << "\tSerial Number: " << uSerial << endl;
+	cout << "*** End Section 1: Factory Fixed ***" << endl << endl;
+	
+	cout << "*** Section 2: Agency Fixed ***" << endl << endl;
+	cout << "\tAgency Fixed and Programmable Block 1:" << endl << "\t\tDecimal: " << uProg1_AgFix_Comb << endl << "\t\tHex: " << hex << uProg1_AgFix_Comb << dec << endl;
 	uint32_t uTop = static_cast<uint32_t>(uProg1_AgFix_Comb >> 128);
 	uint64_t uMid = static_cast<uint64_t>(uProg1_AgFix_Comb >> 64 & 0xFFFFFFFFFFFFFFFFu);
 	uint64_t uLow = static_cast<uint64_t>(uProg1_AgFix_Comb & 0xFFFFFFFFFFFFFFFFu);
 	cout << "\t\tBinary: " << bitset<17>(uTop) << bitset<64>(uMid) << bitset<64>(uLow) << endl;
-	cout << "*** End Section 3: Agency Fixed ***" << endl << endl;
+	cout << "\tHOV and Feedback Flags: " << unsigned(uHovFeed) << endl;
+	cout << "\tProgrammable Block 2: " << endl << "\t\tDecimal: " << uProg2 << endl << "\t\tHex: " << hex << uProg2 << dec << endl << "\t\tBinary: " << bitset<40>(uProg2) << endl;
+	cout << "*** End Section 3: Reader Programmable ***" << endl;
 
-	cout << "*** Section 4: Factory Fixed ***" << endl;
-	cout << "\tSerial Number: " << uSerial << endl;
-	cout << "\tAgency ID: " << mAgencyID[ unsigned(uAgID) ] << " (" << unsigned(uAgID) << ")" << endl;
-	cout << "\tGroup ID: " << mGroupID[ unsigned(uGrpID) ] << " (" << unsigned(uGrpID) << ")" << endl;
-	cout << "\tApplication ID: " << mApplicationID[ unsigned(uAppID) ] << " (" << unsigned(uAppID) << ")" << endl;
-	cout << "\tTag Type: " << mTagType[ unsigned(uTagType) ] << " (" << unsigned(uTagType) << ")" << endl;
-	cout << "\tHeader: " << unsigned(uHeader) << endl;
-	cout << "*** End Section 4: Factory Fixed ***" << endl << endl;
-	
+	cout << "*** Section 4: CRC ***" << endl;
+	cout << "\tCRC (in hex): " << hex << uCRC << dec << endl;
+	cout << "*** End Section 4: CRC ***" << endl << endl;
+
 	cout << "*** End Packet ***" << endl;
 	
 	return;
@@ -742,6 +745,7 @@ bool checkPacketCRC(uint256_t uPacket);
 
 	bInputOk = 0;
 
+	/*
 	// Read in value for CRC, checking that it is an appropriate value and fits into 16 bits before
 	//   placing into packet
 	uint16_t uCRC = 0;
@@ -764,7 +768,10 @@ bool checkPacketCRC(uint256_t uPacket);
 			bInputOk = 1;
 		}
 	}
+	*/
+
 	*uPacket <<= 16;
+	uint16_t uCRC = calcPacketCRC(*uPacket);
 	*uPacket |= uCRC;
 
 	return;
@@ -808,11 +815,10 @@ string getArg(char** ppcBegin, char** ppcEnd, string sOption)
 	return 0;
 }
 
-// Evaluates a packet's CRC and prompts user to continue or quit if CRC is wrong
-bool checkPacketCRC(uint256_t uPacket)
+// Calculates and returns CRC for first 240 bits of a packet
+uint16_t calcPacketCRC(uint256_t uPacket)
 {
 	cout << "Calculating packet error check code..." << endl;
-	uint16_t uProvided = static_cast<uint16_t>(uPacket & 0xFFFFu);
 	
 	uint8_t auReflected[32] = {0};
 	uint8_t uTempByte = 0;
@@ -823,6 +829,14 @@ bool checkPacketCRC(uint256_t uPacket)
 	}
 
 	uint16_t uCRC = CRC::Calculate( auReflected, 30, CRC::CRC_16_XMODEM() );
+	return uCRC;	
+}
+
+// Evaluates a packet's CRC and prompts user to continue or quit if CRC is wrong
+bool checkPacketCRC(uint256_t uPacket)
+{
+	uint16_t uProvided = static_cast<uint16_t>(uPacket & 0xFFFFu);
+	uint16_t uCRC = calcPacketCRC(uPacket);
 
 	cout << "\tCRC from Packet: " << showbase << hex << uProvided << dec << endl;
 	cout << "\tCalculated CRC from Packet Data: " << hex << uCRC << dec << endl;
