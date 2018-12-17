@@ -362,10 +362,8 @@ uint256_t readPacket(ifstream* ifPacket)
 void dispPacket(uint256_t uPacket)
 {
 	cout << "Displaying packet ..." << endl << endl;
-	//TODO: check if user knows location of byte-aligned agency fixed and programmable block 1 border
-	//cout << "Is the location of the byte-aligned boundary between the Agency Fixed and Programmable Block 1 sections known for this transmission? (LETTERS): ";
 
-	// This program will search for and use the first valid transmission in a file
+	// This function will search for and use the first valid transmission in a file
 
 	// Declare offset value for which bit of uPacket we need to shift to be the LSB when reading each data field
 	int nShift = 253;
@@ -391,21 +389,112 @@ void dispPacket(uint256_t uPacket)
 	// Read next 24 bits as Serial Number
 	nShift -= 24;
 	uint32_t uSerial = static_cast<uint32_t>(uPacket >> nShift & 0x00FFFFFFu);
-	// Up to this point, we have been specifying the exact bits to read with a bitwise and,
-	//   along with a literal unsigned int that serves as a mask
-	//   The Agency Fixed and Programamble Block 1 fields have the possibility to be large enough
-	//   to require a mask that is larger than the maximum unsigned int literal
-	//
-	//   To get around this, a 256bit mask structure is created. The mask is fed 64bit unsigned
-	//   literals at a time, and left-shifted inbetween in order to fill it properly
-	uint256_t uMask = 0x1FFFFu;
-	uMask <<= 64;
-	uMask |= 0xFFFFFFFFFFFFFFFFu;
-	uMask <<= 64;
-	uMask |= 0xFFFFFFFFFFFFFFFFu;
-	// Read next 145 bits as combined Agency Fixed and Programmable Block 1 data fields
-	nShift -= 145;
-	uint256_t uProg1_AgFix_Comb = uPacket >> nShift & uMask;
+
+	bool bDividerKnown = 0;
+	int nAgFixLength = 0;
+	uint256_t uAgFixMask = 0;
+	uint256_t uProg1Mask = 0;
+	uint256_t uProg1_AgFix_Comb = 0;
+	uint256_t uProg1 = 0;
+	uint256_t uAgFix = 0;
+	uint16_t uVehClass = 0;
+	uint8_t uUnkField = 0;
+	if( uAgID == 10 || uAgID == 31 )
+	{
+		bDividerKnown = 1;
+		nAgFixLength = 17;
+		uAgFixMask = 0x0001FFFFu;
+	} else
+	{
+		cout << "Packets from this Agency have not been examined before, and therefore the byte-aligned boundary between the Agency Fixed and Programmable Block 1 sections is unknown. Unless you specify the boundary, the two sections will be output together as decimal, hex, and binary." << endl;
+		bool bInputOk = 0;
+		string strInput;
+		do
+		{
+			cout << "Do you know the boundary? (y/n): ";
+			cin >> strInput;
+			if( strInput == "y" || strInput == "n" )
+			{
+				bInputOk = 1;
+			}
+		} while( !bInputOk );
+		if(strInput == "y")
+		{
+			bDividerKnown = 1;
+			bInputOk = 0;
+
+			// The border between the Agency Fixed and Programmable Block 1 data fields is left up to each agency,
+			//   with the only restricitons being that it must occur at the end of a byte and occur between the
+			//   Serial Number and HOV/Feedback Flag data fields
+			//
+			//   Because of this, the user is prompted for an acceptable bit to set the border at before prompting
+			//     for data for each of these fields
+			int nDivider;
+			while( !bInputOk )
+			{
+				cout << "Enter the bit location of the boundary between the Agency Fixed and Programmable Block 1 sections (48-184): ";
+				if( !(cin >> nDivider) )
+				{
+					cin.clear();
+					cin.ignore(numeric_limits<streamsize>::max(), '\n');
+					cout << "Error: Improper type, please try again" << endl;
+				} else if(nDivider < 48 || nDivider > 184)
+				{
+					cout << "Error: Improper value, please try again" << endl;
+				} else if( nDivider % 8 )
+				{
+					cout << "Error: Not a byte-aligned (multiple of 8) bit, please try again" << endl;
+				} else
+				{
+					bInputOk = 1;
+				}
+			}
+			nAgFixLength = nDivider-17;
+			for(int nMaskBit = 0; nMaskBit < nAgFixLength; nMaskBit++)
+			{
+				uAgFixMask <<= 1;
+				uAgFixMask |= 1;
+			}
+		} // end if
+		
+	} // end if-else
+	if(bDividerKnown)
+	{
+		nShift -= nAgFixLength;
+		uAgFix = uPacket >> nShift & uAgFixMask;
+		if(uAgID == 10 || uAgID == 31)
+		{
+			uVehClass = static_cast<uint16_t>(uAgFix >> 6);
+			uUnkField = static_cast<uint8_t>(uAgFix & 0x3Fu);
+		}
+
+		int nProg1Length = 145 - nAgFixLength;
+		for(int nMaskBit = 0; nMaskBit < nProg1Length; nMaskBit++)
+		{
+			uProg1Mask <<= 1;
+			uProg1Mask |= 1;
+		}
+		nShift -= nProg1Length;
+		uProg1 = uPacket >> nShift & uProg1Mask;
+	} else
+	{
+		// Up to this point, we have been specifying the exact bits to read with a bitwise and,
+		//   along with a literal unsigned int that serves as a mask
+		//   The Agency Fixed and Programamble Block 1 fields have the possibility to be large enough
+		//   to require a mask that is larger than the maximum unsigned int literal
+		//
+		//   To get around this, a 256bit mask structure is created. The mask is fed 64bit unsigned
+		//   literals at a time, and left-shifted inbetween in order to fill it properly
+		uint256_t uMask = 0x1FFFFu;
+		uMask <<= 64;
+		uMask |= 0xFFFFFFFFFFFFFFFFu;
+		uMask <<= 64;
+		uMask |= 0xFFFFFFFFFFFFFFFFu;
+		// Read next 145 bits as combined Agency Fixed and Programmable Block 1 data fields
+		nShift -= 145;
+		uProg1_AgFix_Comb = uPacket >> nShift & uMask;
+	}
+
 	// Read next 8 bits as HOV and Feedback Flags
 	nShift -= 8;
 	uint8_t uHovFeed = static_cast<uint8_t>(uPacket >> nShift & 0xFFu);
@@ -428,15 +517,37 @@ void dispPacket(uint256_t uPacket)
 	cout << "\tSerial Number: " << uSerial << endl;
 	cout << "*** End Section 1: Factory Fixed ***" << endl << endl;
 	
-	cout << "*** Section 2: Agency Fixed ***" << endl << endl;
-	cout << "\tAgency Fixed and Programmable Block 1:" << endl << "\t\tDecimal: " << uProg1_AgFix_Comb << endl << "\t\tHex: " << hex << uProg1_AgFix_Comb << dec << endl;
-	uint32_t uTop = static_cast<uint32_t>(uProg1_AgFix_Comb >> 128);
-	uint64_t uMid = static_cast<uint64_t>(uProg1_AgFix_Comb >> 64 & 0xFFFFFFFFFFFFFFFFu);
-	uint64_t uLow = static_cast<uint64_t>(uProg1_AgFix_Comb & 0xFFFFFFFFFFFFFFFFu);
-	cout << "\t\tBinary: " << bitset<17>(uTop) << bitset<64>(uMid) << bitset<64>(uLow) << endl;
+	if( !bDividerKnown )
+	{
+		cout << "*** Section 2: Agency Fixed and Section 3: Reader Programmable ***" << endl;
+		cout << "\tAgency Fixed and Programmable Block 1:" << endl << "\t\tDecimal: " << uProg1_AgFix_Comb << endl << "\t\tHex: " << hex << uProg1_AgFix_Comb << dec << endl;
+		uint32_t uHigh = static_cast<uint32_t>(uProg1_AgFix_Comb >> 128);
+		uint64_t uMid = static_cast<uint64_t>(uProg1_AgFix_Comb >> 64 & 0xFFFFFFFFFFFFFFFFu);
+		uint64_t uLow = static_cast<uint64_t>(uProg1_AgFix_Comb & 0xFFFFFFFFFFFFFFFFu);
+		cout << "\t\tBinary: " << bitset<17>(uHigh) << bitset<64>(uMid) << bitset<64>(uLow) << endl;
+	}else if(uAgID == 10 || uAgID == 31)
+	{
+		cout << "*** Section 2: Agency Fixed ***" << endl;
+		cout << "\tVehicle Class: " << uVehClass << endl;
+		cout << "\tUnknown Field: " << (unsigned)uUnkField << endl;
+		cout << "*** End Section 2: Agency Fixed ***" << endl << endl;
+
+		cout << "*** Section 3: Reader Programmable ***" << endl;
+		cout << "\tProgrammable Block 1: " << endl << "\t\tDecimal: " << uProg1 << endl << "\t\tHex: " << hex << uProg1 << dec << endl;
+		uint64_t uHigh = static_cast<uint64_t>(uProg1 >> 64 & 0xFFFFFFFFFFFFFFFFu);
+		uint64_t uLow = static_cast<uint64_t>(uProg1 & 0xFFFFFFFFFFFFFFFFu);
+		cout << "\t\tBinary: " << bitset<64>(uHigh) << bitset<64>(uLow) << endl;
+	} else
+	{
+		cout << "*** Section 2: Agency Fixed ***" << endl;
+		cout << "\tAgency Fixed: " << endl << "\t\tDecimal: " << uAgFix << endl << "\t\tHex: " << hex << uAgFix << dec << endl;
+		cout << "*** End Section 2: Agency Fixed ***" << endl << endl;
+		cout << "*** Section 3: Reader Programmable ***" << endl;
+		cout << "\tProgrammable Block 1: " << endl << "\t\tDecimal: " << uProg1 << endl << "\t\tHex: " << hex << uProg1 << dec << endl;
+	}
 	cout << "\tHOV and Feedback Flags: " << unsigned(uHovFeed) << endl;
 	cout << "\tProgrammable Block 2: " << endl << "\t\tDecimal: " << uProg2 << endl << "\t\tHex: " << hex << uProg2 << dec << endl << "\t\tBinary: " << bitset<40>(uProg2) << endl;
-	cout << "*** End Section 3: Reader Programmable ***" << endl;
+	cout << "*** End Section 3: Reader Programmable ***" << endl << endl;
 
 	cout << "*** Section 4: CRC ***" << endl;
 	cout << "\tCRC (in hex): " << hex << uCRC << dec << endl;
@@ -743,33 +854,7 @@ bool checkPacketCRC(uint256_t uPacket);
 	*uPacket <<= 40;
 	*uPacket |= uProgData2;
 
-	bInputOk = 0;
-
-	/*
-	// Read in value for CRC, checking that it is an appropriate value and fits into 16 bits before
-	//   placing into packet
-	uint16_t uCRC = 0;
-	uMaxVal = 1;
-	uMaxVal <<= 16;
-	uMaxVal -= 1;
-	while( !bInputOk )
-	{
-		cout << "Enter an unsigned integer representation of the CRC-XMODEM checksum(0 - " << uMaxVal << "): ";
-		if( !(cin >> uCRC) )
-		{
-			cin.clear();
-			cin.ignore(numeric_limits<streamsize>::max(), '\n');
-			cout << "Error: Improper type, please try again" << endl;
-		} else if(uCRC > uMaxVal )
-		{
-			cout << "Error: Improper value, please try again" << endl;
-		} else
-		{
-			bInputOk = 1;
-		}
-	}
-	*/
-
+	// Calculate and append CRC-XMODEM error correction code to end of packet
 	*uPacket <<= 16;
 	uint16_t uCRC = calcPacketCRC(*uPacket);
 	*uPacket |= uCRC;
@@ -847,20 +932,28 @@ bool checkPacketCRC(uint256_t uPacket)
 	} else
 	{
 		string strContinue;
-		cout << "Values do not match! Continue displaying packet with bit errors anyways? (y/N): ";
-		cin >> strContinue;
-		if(strContinue == "Y")
-		{
-			cout << "Continuing anyways..." << endl;
-			cout << "*** WARNING - OUTPUT VALUES MAY NOT BE CORRECT! ***" << endl << endl;
-			return true;
-		} else
-		{
-			cout << "Exiting gracefully..." << endl;
-			return false;
-		}
-	}
+		cout << "Values do not match!" << endl;
 
+		bool bInputOk = 0;
+		do
+		{
+			cout << "Continue displaying packet with bit errors anyways? (y/n): ";
+			cin >> strContinue;
+			if(strContinue == "y")
+			{
+				cout << "Continuing anyways..." << endl;
+				cout << "*** WARNING - OUTPUT VALUES MAY NOT BE CORRECT! ***" << endl << endl;
+				bInputOk = 1;
+				return true;
+			} else if(strContinue == "n")
+			{
+				cout << "Exiting gracefully..." << endl;
+				bInputOk = 1;
+				return false;
+			}
+		} while( !bInputOk );
+	}
+	return false;
 }
 
 /****************************/
