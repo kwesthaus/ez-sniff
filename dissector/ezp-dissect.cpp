@@ -54,7 +54,10 @@ using namespace boost::multiprecision;
 void initSectionStringLookups(map<int, string>* mTagType, map<int, string>* mApplicationID);
 
 // Read in a GNURadioCompanion-output file and convert to 256bit packet structure
-uint256_t readPacket(ifstream* ifPacket);
+uint256_t readGRCPacket(ifstream* ifPacket);
+
+// Read 256bit binary packet file
+uint256_t readShortPacket(ifstream* ifPacket);
 
 // Read in a file, dissect packet, and display output
 void dispPacket(uint256_t uPacket);
@@ -66,10 +69,10 @@ uint256_t craftPacket();
 void writePacket(uint256_t uPacket, ofstream* ofPacket);
 
 // Check if a given string exists in the command line arguments
-bool argExists(char** ppcBegin, char** ppcEnd, string sOption);
+bool argExists(vector<string>* vArgs, string sOption);
 
 // If a string exists in the command line arguments, get its accompanying value
-string getArg(char** ppcBegin, char** ppcEnd, string sOption);
+string getArg(vector<string>* vArgs, string sOption);
 
 // Calculates and returns CRC for first 240 bits of a packet
 uint16_t calcPacketCRC(uint256_t uPacket);
@@ -88,66 +91,139 @@ bool checkPacketCRC(uint256_t uPacket);
 
 int main(int argc, char* argv[])
 {
-	// Flags for various input arguments
-	bool bInputArgsOk = 0;
-	bool bArgInput = 0, bArgOutput = 0;
-	bool bArgHex = 0, bArgBin = 0, bArgMan = 0;
-
 	// Declare input and output streams
 	ifstream ifPacket;
 	ofstream ofPacket;
 
-	// Run program in input mode
-	if(argExists(argv, argv+argc, "-i"))
+	vector<string> vArgs(argv+1, argv+argc);
+
+	enum direction
 	{
-		// Set input flag
-		bArgInput = 1;
+		INPUT_BAD,
+		READ_GRC,
+		CRAFT_TEST,
+		READ_SHORT,
+		CONVERT_GRC
+	} eUserDirection;
+	eUserDirection = INPUT_BAD;
+
+	// Check for reading a GRC-output file as input
+	if( argExists(&vArgs, "-i") && ( argExists(&vArgs, "--grc-file") || argExists(&vArgs, "-g") ) && argc == 4 )
+	{
 		// Get input file name and open in binary mode
-		string strInFileName = getArg(argv, argv+argc, "-i");
+		string strInFileName = getArg( &vArgs, "-i" );
 		ifPacket.open(strInFileName, ios::in|ios::binary);
 		// Make sure input file exists. Otherwise, output error and quit
 		if( !ifPacket.good() )
 		{
 			cerr << "ERROR: Input file \"" << strInFileName << "\" could not be opened" << endl;
 		// If only input file is specified and file opened properly, command line syntax is ok
-		} else if(argc == 3)
-		{
-			bInputArgsOk = 1;
-		// If extra argument is one of possible output specifiers, set appropriate flag
-		//   Otherwise, syntax is NOT ok
-		} else if( argc == 4 && ( argExists(argv, argv+argc, "-h") || argExists(argv, argv+argc, "-b") || argExists(argv, argv+argc, "-m") ) )
-		{
-			bInputArgsOk = 1;
-			bArgHex = argExists(argv, argv+argc, "-h");
-			bArgBin = argExists(argv, argv+argc, "-b");
-			bArgMan = argExists(argv, argv+argc, "-m");
 		} else
 		{
-			cerr << "ERROR: Unknown arguments" << endl;
-		}
-		
-	// Run program in output mode
-	} else if(argExists(argv, argv+argc, "-o"))
+			eUserDirection = READ_GRC;
+		}	
+	// Check for outputting a short packet test file
+	} else if(argExists(&vArgs, "-o") && argc == 3)
 	{
-		// Set output flag
-		bArgOutput = 1;
 		// Get output file name and open in binary mode
-		string strOutFileName = getArg(argv, argv+argc, "-o");
+		string strOutFileName = getArg(&vArgs, "-o");
 		ofPacket.open(strOutFileName, ios::out|ios::binary);
 		// Make sure output file can be opened. Otherwise, output error and quit
 		if( !ofPacket.good() )
 		{
 			cerr << "ERROR: Output file \"" << strOutFileName << "\" could not be opened" << endl;
 		// If only output file is specified and file opened properly, command line syntax is ok
-		} else if(argc == 3)
+		} else
 		{
-			bInputArgsOk = 1;
+			eUserDirection = CRAFT_TEST;
 		}
-	}
-
-	// If syntax is not ok, output program options and exit with error
-	if(!bInputArgsOk)
+	// Check for reading short packet file
+	} else if( argExists(&vArgs, "-i") && ( argExists(&vArgs, "--short-file") || argExists(&vArgs, "-s") ) && argc == 4 )
 	{
+		// Get input file name and open in binary mode
+		string strInFileName = getArg( &vArgs, "-i" );
+		ifPacket.open(strInFileName, ios::in|ios::binary);
+		// Make sure input file exists. Otherwise, output error and quit
+		if( !ifPacket.good() )
+		{
+			cerr << "ERROR: Input file \"" << strInFileName << "\" could not be opened" << endl;
+		} else
+		{
+			eUserDirection = READ_SHORT;
+		}
+	// Check for reading a GRC-output file as input, and outputting it as a short packet
+	} else if( argExists(&vArgs, "-i") && argExists(&vArgs, "-o") && argc == 5 )
+	{
+		// Get input file name and open in binary mode
+		string strInFileName = getArg( &vArgs, "-i" );
+		ifPacket.open(strInFileName, ios::in|ios::binary);
+		// Get output file name and open in binary mode
+		string strOutFileName = getArg( &vArgs, "-o");
+		ofPacket.open(strOutFileName, ios::out|ios::binary);
+		// Make sure input file exists. Otherwise, output error and quit
+		if( !ifPacket.good() )
+		{
+			cerr << "ERROR: Input file \"" << strInFileName << "\" could not be opened" << endl;
+		} else if( !ofPacket.good() )
+		{
+			// Make sure output file exists. Otherwise, output error and quit
+			cerr << "ERROR: Output file \"" << strOutFileName << "\" could not be opened" << endl;
+		} else
+		{
+			eUserDirection = CONVERT_GRC;
+		}
+	} // end if-else ladder for eUserDirection checks
+
+	if(eUserDirection == READ_GRC)
+	{
+		// If syntax is ok and program is in read GRC packet mode, display packet from file
+		uint256_t uPacket = readGRCPacket( &ifPacket );
+		bool bContinue = checkPacketCRC( uPacket );
+		if( !bContinue )
+		{
+			ifPacket.close();
+			exit(1);
+		}
+		dispPacket( uPacket );
+		// Safely close file
+		ifPacket.close();
+	} else if(eUserDirection == CRAFT_TEST)
+	{
+		// If syntax is ok and program is in craft test packet mode, craft test packet and write to short packet file
+		uint256_t uPacket = craftPacket();
+		writePacket(uPacket, &ofPacket);
+		// Safely close file
+		ofPacket.close();
+	} else if(eUserDirection == READ_SHORT)
+	{
+		// If syntax is ok and program is in read short packet mode, display packet from file
+		uint256_t uPacket = readShortPacket( &ifPacket );
+		bool bContinue = checkPacketCRC( uPacket );
+		if( !bContinue )
+		{
+			ifPacket.close();
+			exit(1);
+		}
+		dispPacket( uPacket );
+		// Safely close file
+		ifPacket.close();
+	} else if(eUserDirection == CONVERT_GRC)
+	{
+		uint256_t uPacket = readGRCPacket( &ifPacket);
+		bool bContinue = checkPacketCRC( uPacket );
+		if( !bContinue )
+		{
+			ifPacket.close();
+			exit(1);
+		}
+		dispPacket( uPacket );
+		// Safely close file
+		ifPacket.close();
+		writePacket(uPacket, &ofPacket);
+		ofPacket.close();
+	} else
+	{
+		// If syntax is not ok, output program options and exit with error
 		cout << endl;
 		cout << "***Usage:***" << endl;
 		cout << "ezp-dissect [-i \"input file name\"] [-o \"output file name\"] [-h] [-b] [-m]" << endl;
@@ -168,29 +244,6 @@ int main(int argc, char* argv[])
 		cout << "ezp-dissect -o reader_buzzHMI.ezp" << endl;
 		cout << endl;
 		exit(1);
-	} // end if
-	
-	// If syntax is ok and program is in input mode, display packet from file
-	if(bArgInput)
-	{
-		uint256_t uPacket = readPacket( &ifPacket );
-		bool bContinue = checkPacketCRC( uPacket );
-		if( !bContinue )
-		{
-			ifPacket.close();
-			exit(1);
-		}
-		dispPacket( uPacket );
-		// Safely close file
-		ifPacket.close();
-
-	// If syntax is ok and program is in output mode, craft test packet and write to file
-	} else if(bArgOutput)
-	{
-		uint256_t uPacket = craftPacket();
-		writePacket(uPacket, &ofPacket);
-		// Safely close file
-		ofPacket.close();
 	}
 
 	cout << "Program completed successfully. Quitting..." << endl;
@@ -238,7 +291,7 @@ void initSectionStringLookups(map<int, string>* mTagType, map<int, string>* mApp
 } // end initSectionStringLookups(map<int, string>*, map<int, string>*, map<int, string>*, map<int, string>*
 
 // Read in a GNURadioCompanion-output file and convert to 256bit packet structure
-uint256_t readPacket(ifstream* ifPacket)
+uint256_t readGRCPacket(ifstream* ifPacket)
 {
 	// This function will search for and use the first valid transmission in a file
 	
@@ -254,7 +307,7 @@ uint256_t readPacket(ifstream* ifPacket)
 	//   that only one packet is contained in the file
 	
 	// Create new uint packet structure and uint temporary reader variable
-	// Use uint16_t since uint8_t likes to output as a char rather than an int
+	// Use uint16_t since uint8_t likes to output as a char rather than an int, and casting can get complex
 	uint256_t uPacket = 0;
 	uint16_t uTempReader = 0;
 
@@ -363,9 +416,6 @@ uint256_t readPacket(ifstream* ifPacket)
 		// At this point, each byte output from GRC contains only 1 bit
 		// Read in one byte from file to temporary reader variable
 		ifPacket->read(reinterpret_cast<char*>(&uTempReader), 1);
-		//cout << ifPacket->tellg();
-		//cout << uTempReader << endl;
-		//cin.get();
 		// Left-shift packet structure one bit
 		//   This is an acceptable amount even though uTempReader is 16bits because each file byte will
 		//   only contain a value the Least Significant Bit
@@ -379,12 +429,50 @@ uint256_t readPacket(ifstream* ifPacket)
 	} // end for
 
 	return uPacket;
-} // end readPacket(ifstream*)
+} // end readGRCPacket(ifstream*)
+
+// Read 256bit binary packet file
+uint256_t readShortPacket(ifstream* ifPacket)
+{
+	// This function expects a 256bit file containing a valid packet and no extra space
+	
+	if( !ifPacket->good() )
+	{
+		cerr << "Error in input file, quitting..." << endl;
+		exit(1);
+	}
+
+	ifPacket->seekg(0, ios::end);
+	int nFileLength = ifPacket->tellg();
+	if(nFileLength != 32)
+	{
+		cerr << "Error: short packet file is not correct length! Expected 256bits/32bytes. Quitting..." << endl;
+		exit(1);
+	}
+	ifPacket->seekg(0, ios::beg);
+	cout << "Reading packet file ..." << endl << endl;
+	// Assume:
+	//   that ifPacket.good() has already been checked
+	//   that only one packet is contained in the file
+	
+	// Create new uint packet structure and uint temporary reader variable
+	// Use uint16_t since uint8_t likes to output as a char rather than an int
+	uint256_t uPacket = 0;
+	uint16_t uTempReader = 0;
+
+	for(int nReadCount = 0; nReadCount < 32; nReadCount++)
+	{
+		ifPacket->read(reinterpret_cast<char*>(&uTempReader), 1);
+		uPacket <<= BYTE_LEN;
+		uPacket |= uTempReader;
+	}
+	return uPacket;
+} // end readShortPacket(ifstream*)
 
 // Read in a file, dissect packet, and display output
 void dispPacket(uint256_t uPacket)
 {
-	cout << "Displaying packet ..." << endl << endl;
+	cout << endl << "Displaying packet ..." << endl << endl;
 
 	// Declare offset value for which bit of uPacket we need to shift to be the LSB when reading each data field
 	int nShift = 253;
@@ -411,6 +499,7 @@ void dispPacket(uint256_t uPacket)
 	nShift -= 24;
 	uint32_t uSerial = static_cast<uint32_t>(uPacket >> nShift & 0x00FFFFFFu);
 
+	// Initialize variables for reading Agency Fixed and Programmable Block 1 sections
 	bool bDividerKnown = 0;
 	int nAgFixLength = 0;
 	uint256_t uAgFixMask = 0;
@@ -420,6 +509,7 @@ void dispPacket(uint256_t uPacket)
 	uint256_t uAgFix = 0;
 	uint16_t uVehClass = 0;
 	uint8_t uUnkField = 0;
+	// If packets from these agencies have been tested before, we know the packet layout
 	if( uAgID == 10 || uAgID == 31 )
 	{
 		bDividerKnown = 1;
@@ -427,6 +517,8 @@ void dispPacket(uint256_t uPacket)
 		uAgFixMask = 0x0001FFFFu;
 	} else
 	{
+		// Otherwise, prompt user if they know the packet layout for this agency
+		cout << "Agency ID: " << +uAgID << endl;
 		cout << "Packets from this Agency have not been examined before, and therefore the byte-aligned boundary between the Agency Fixed and Programmable Block 1 sections is unknown. Unless you specify the boundary, the two sections will be output together as decimal, hex, and binary." << endl;
 		bool bInputOk = 0;
 		string strInput;
@@ -471,6 +563,7 @@ void dispPacket(uint256_t uPacket)
 				}
 			}
 			nAgFixLength = nDivider-KNOWN_FIXED_LENGTH;
+			// Create a mask variable that will be used to select the bits we need
 			for(int nMaskBit = 0; nMaskBit < nAgFixLength; nMaskBit++)
 			{
 				uAgFixMask <<= 1;
@@ -481,14 +574,17 @@ void dispPacket(uint256_t uPacket)
 	} // end if-else
 	if(bDividerKnown)
 	{
+		// If the divider is known or user-specified, we can split the Agency Fixed and Programmable Block 1 sections
+		//   using the section length and mask we generated earlier
 		nShift -= nAgFixLength;
 		uAgFix = uPacket >> nShift & uAgFixMask;
+		// Special cases for packets from well-studied agencies
 		if(uAgID == 10 || uAgID == 31)
 		{
 			uVehClass = static_cast<uint16_t>(uAgFix >> 6);
 			uUnkField = static_cast<uint8_t>(uAgFix & 0x3Fu);
 		}
-
+		// Next, calculate length and mask for Programmable Block 1, then read it
 		int nProg1Length = 145 - nAgFixLength;
 		for(int nMaskBit = 0; nMaskBit < nProg1Length; nMaskBit++)
 		{
@@ -499,6 +595,8 @@ void dispPacket(uint256_t uPacket)
 		uProg1 = uPacket >> nShift & uProg1Mask;
 	} else
 	{
+		// Otherwise, read Agency Fixed and Programmable Block 1 sections as one large chunk
+		
 		// Up to this point, we have been specifying the exact bits to read with a bitwise and,
 		//   along with a literal unsigned int that serves as a mask
 		//   The Agency Fixed and Programamble Block 1 fields have the possibility to be large enough
@@ -529,25 +627,29 @@ void dispPacket(uint256_t uPacket)
 	// Output calculated values with pretty data field headers
 	cout << "*** Begin Packet ***" << endl << endl;
 
+	// Preface uint8_t values with a + sign so that they output as unsigned ints rather than chars
 	cout << "*** Section 1: Factory Fixed ***" << endl;
-	cout << "\tHeader: " << unsigned(uHeader) << endl;
-	cout << "\tTag Type: " << mTagType[ unsigned(uTagType) ] << " (" << unsigned(uTagType) << ")" << endl;
-	cout << "\tApplication ID: " << mApplicationID[ unsigned(uAppID) ] << " (" << unsigned(uAppID) << ")" << endl;
-	cout << "\tGroup ID: " << mGroupID[ unsigned(uGrpID) ] << " (" << unsigned(uGrpID) << ")" << endl;
-	cout << "\tAgency ID: " << mAgencyID[ unsigned(uAgID) ] << " (" << unsigned(uAgID) << ")" << endl;
+	cout << "\tHeader: " << +uHeader << endl;
+	cout << "\tTag Type: " << mTagType[ +uTagType ] << " (" << +uTagType << ")" << endl;
+	cout << "\tApplication ID: " << mApplicationID[ +uAppID ] << " (" << +uAppID << ")" << endl;
+	cout << "\tGroup ID: " << mGroupID[ +uGrpID ] << " (" << +uGrpID << ")" << endl;
+	cout << "\tAgency ID: " << mAgencyID[ +uAgID ] << " (" << +uAgID << ")" << endl;
 	cout << "\tSerial Number: " << uSerial << endl;
 	cout << "*** End Section 1: Factory Fixed ***" << endl << endl;
 	
+	// Output Agency Fixed and Reader Programmable sections as one if boundary unknown
 	if( !bDividerKnown )
 	{
 		cout << "*** Section 2: Agency Fixed and Section 3: Reader Programmable ***" << endl;
 		cout << "\tAgency Fixed and Programmable Block 1:" << endl << "\t\tDecimal: " << uProg1_AgFix_Comb << endl << "\t\tHex: " << hex << uProg1_AgFix_Comb << dec << endl;
+		// Mask combined field to 64bit subsections so that we can initialize bitsets to output binary
 		uint32_t uHigh = static_cast<uint32_t>(uProg1_AgFix_Comb >> 128);
 		uint64_t uMid = static_cast<uint64_t>(uProg1_AgFix_Comb >> 64 & 0xFFFFFFFFFFFFFFFFu);
 		uint64_t uLow = static_cast<uint64_t>(uProg1_AgFix_Comb & 0xFFFFFFFFFFFFFFFFu);
 		cout << "\t\tBinary: " << bitset<17>(uHigh) << bitset<64>(uMid) << bitset<64>(uLow) << endl;
 	}else if(uAgID == 10 || uAgID == 31)
 	{
+		// Specific output for packets from well-studied agencies
 		cout << "*** Section 2: Agency Fixed ***" << endl;
 		cout << "\tVehicle Class: " << uVehClass << endl;
 		cout << "\tUnknown Field: " << +uUnkField << endl;
@@ -555,6 +657,7 @@ void dispPacket(uint256_t uPacket)
 
 		cout << "*** Section 3: Reader Programmable ***" << endl;
 		cout << "\tProgrammable Block 1: " << endl << "\t\tDecimal: " << uProg1 << endl << "\t\tHex: " << hex << uProg1 << dec << endl;
+		// Mask field to 64bit subsections so that we can initialize bitsets to output binary
 		uint64_t uHigh = static_cast<uint64_t>(uProg1 >> 64 & 0xFFFFFFFFFFFFFFFFu);
 		uint64_t uLow = static_cast<uint64_t>(uProg1 & 0xFFFFFFFFFFFFFFFFu);
 		cout << "\t\tBinary: " << bitset<64>(uHigh) << bitset<64>(uLow) << endl;
@@ -566,7 +669,7 @@ void dispPacket(uint256_t uPacket)
 		cout << "*** Section 3: Reader Programmable ***" << endl;
 		cout << "\tProgrammable Block 1: " << endl << "\t\tDecimal: " << uProg1 << endl << "\t\tHex: " << hex << uProg1 << dec << endl;
 	}
-	cout << "\tHOV and Feedback Flags: " << unsigned(uHovFeed) << endl;
+	cout << "\tHOV and Feedback Flags: " << +uHovFeed << endl;
 	cout << "\tProgrammable Block 2: " << endl << "\t\tDecimal: " << uProg2 << endl << "\t\tHex: " << hex << uProg2 << dec << endl << "\t\tBinary: " << bitset<40>(uProg2) << endl;
 	cout << "*** End Section 3: Reader Programmable ***" << endl << endl;
 
@@ -932,22 +1035,23 @@ void writePacket(uint256_t uPacket, ofstream* ofPacket)
 } // end writePacket(uint256_t, ofstream*)
 
 // Check if a given string exists in the command line arguments
-bool argExists(char** ppcBegin, char** ppcEnd, string sOption)
+bool argExists(vector<string>* vArgs, string sOption)
 {
-	return find(ppcBegin, ppcEnd, sOption) != ppcEnd;
-} // end argExists(char**, char**, string)
+	return ( find(vArgs->begin(), vArgs->end(), sOption) != vArgs->end() );
+} // end argExists(vector<string>*, string)
 
 // If a string exists in the command line arguments, get its accompanying (following) value
-string getArg(char** ppcBegin, char** ppcEnd, string sOption)
+string getArg(vector<string>* vArgs, string sOption)
 {
-	char** ppcItr = find(ppcBegin, ppcEnd, sOption);
-	if(ppcItr != ppcEnd && ++ppcItr != ppcEnd)
+	
+	auto ivIter = find(vArgs->begin(), vArgs->end(), sOption);
+	if( ivIter != vArgs->end() && ++ivIter != vArgs->end() )
 	{
-		string strResult(*ppcItr);
+		string strResult(*ivIter);
 		return strResult;
 	}
-	return 0;
-} // end getArg(char**, char**, string)
+	return "";
+} // end getArg(vector<string>*, string)
 
 // Calculates and returns CRC for first 240 bits of a packet
 uint16_t calcPacketCRC(uint256_t uPacket)
