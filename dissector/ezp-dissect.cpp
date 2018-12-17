@@ -1,6 +1,6 @@
-/*********************************************/
-/* BEGIN HEADER FILE INCLUDES AND NAMESPACES */
-/*********************************************/
+/*******************************************************/
+/* BEGIN HEADER FILE INCLUDES, NAMESPACES, AND DEFINES */
+/*******************************************************/
 
 // For cin, cout, etc
 #include <iostream>
@@ -23,21 +23,34 @@
 // For CRC-XMODEM implementation
 #include "CRC.h"
 
+
 // For cin, cout, string, map, etc.
 using namespace std;
 // For uint256_t
 using namespace boost::multiprecision;
 
-/*******************************************/
-/* END HEADER FILE INCLUDES AND NAMESPACES */
-/*******************************************/
+
+// Define a few values to reduce amount of magic numbers
+// Sum total of known-length fixed sections is 47 bits
+#define KNOWN_FIXED_LENGTH 47
+// Smallest byte-aligned boundary after KNOWN_FIXED_LENGTH
+#define BOUNDARY_MIN 48
+// Largest byte-aligned boundary after KNOWN_FIXED_LENGTH which still leaves at least 1 byte for
+//   Programmable Block 1 and 64 bits for Programmable Block 2 and CRC
+#define BOUNDARY_MAX 184
+// Used many times for bit operations
+#define BYTE_LEN 8
+
+/*****************************************************/
+/* END HEADER FILE INCLUDES, NAMESPACES, AND DEFINES */
+/*****************************************************/
 
 
 /*****************************/
 /* BEGIN FUNCTION PROTOTYPES */
 /*****************************/
 
-// Initialize string explanations for integer values of Tag Type and Application ID
+// Initialize string explanations for integer values of some data fields
 void initSectionStringLookups(map<int, string>* mTagType, map<int, string>* mApplicationID);
 
 // Read in a GNURadioCompanion-output file and convert to 256bit packet structure
@@ -47,10 +60,10 @@ uint256_t readPacket(ifstream* ifPacket);
 void dispPacket(uint256_t uPacket);
 
 // Prompt user and pack data sectors into 256bit packet structure
-void craftPacket(uint256_t* uPacket);
+uint256_t craftPacket();
 
-// Call function to craft packet, then write to specified output file
-void writePacket(ofstream* ofPacket);
+// Write packet to specified output file
+void writePacket(uint256_t uPacket, ofstream* ofPacket);
 
 // Check if a given string exists in the command line arguments
 bool argExists(char** ppcBegin, char** ppcEnd, string sOption);
@@ -61,7 +74,7 @@ string getArg(char** ppcBegin, char** ppcEnd, string sOption);
 // Calculates and returns CRC for first 240 bits of a packet
 uint16_t calcPacketCRC(uint256_t uPacket);
 
-// Evaluates a packet's CRC and prompts user to continue or quit if CRC is wrong
+// Evaluates a packet's CRC and prompts user to continue or quit if CRC does not match
 bool checkPacketCRC(uint256_t uPacket);
 
 /***************************/
@@ -95,7 +108,7 @@ int main(int argc, char* argv[])
 		// Make sure input file exists. Otherwise, output error and quit
 		if( !ifPacket.good() )
 		{
-			cout << "ERROR: Input file \"" << strInFileName << "\" could not be opened" << endl;
+			cerr << "ERROR: Input file \"" << strInFileName << "\" could not be opened" << endl;
 		// If only input file is specified and file opened properly, command line syntax is ok
 		} else if(argc == 3)
 		{
@@ -110,7 +123,7 @@ int main(int argc, char* argv[])
 			bArgMan = argExists(argv, argv+argc, "-m");
 		} else
 		{
-			cout << "ERROR: Unknown arguments" << endl;
+			cerr << "ERROR: Unknown arguments" << endl;
 		}
 		
 	// Run program in output mode
@@ -124,7 +137,7 @@ int main(int argc, char* argv[])
 		// Make sure output file can be opened. Otherwise, output error and quit
 		if( !ofPacket.good() )
 		{
-			cout << "ERROR: Output file \"" << strOutFileName << "\" could not be opened" << endl;
+			cerr << "ERROR: Output file \"" << strOutFileName << "\" could not be opened" << endl;
 		// If only output file is specified and file opened properly, command line syntax is ok
 		} else if(argc == 3)
 		{
@@ -174,7 +187,8 @@ int main(int argc, char* argv[])
 	// If syntax is ok and program is in output mode, craft test packet and write to file
 	} else if(bArgOutput)
 	{
-		writePacket(&ofPacket);
+		uint256_t uPacket = craftPacket();
+		writePacket(uPacket, &ofPacket);
 		// Safely close file
 		ofPacket.close();
 	}
@@ -191,7 +205,7 @@ int main(int argc, char* argv[])
 /* BEGIN FUNCTION DEFINITIONS */
 /******************************/
 
-// Initialize string explanations for integer values of Tag Type and Application ID
+// Initialize string explanations for integer values of some data fields
 void initSectionStringLookups(map<int, string>* mTagType, map<int, string>* mApplicationID, map<int, string>* mAgencyID, map<int, string>* mGroupID)
 {
 	// Set explanation text for each type of tag
@@ -214,20 +228,23 @@ void initSectionStringLookups(map<int, string>* mTagType, map<int, string>* mApp
 	(*mApplicationID)[6] = "Reserved for future use/unknown";
 	(*mApplicationID)[7] = "Reserved for future use/unknown";
 
+	(*mAgencyID)[0] = "Manufacturer (Kapsch)";
 	(*mAgencyID)[10] = "Virginia DOT";
 	(*mAgencyID)[31] = "Ohio Turnpike and Infrastructure Commission (OTIC)";
 
 	(*mGroupID)[65] = "E-ZPass Interagency Group";
 
 	return;
-}
+} // end initSectionStringLookups(map<int, string>*, map<int, string>*, map<int, string>*, map<int, string>*
 
 // Read in a GNURadioCompanion-output file and convert to 256bit packet structure
 uint256_t readPacket(ifstream* ifPacket)
 {
+	// This function will search for and use the first valid transmission in a file
+	
 	if( !ifPacket->good() )
 	{
-		cerr << "error in file " << endl;
+		cerr << "Error in input file, quitting..." << endl;
 		exit(1);
 	}
 	
@@ -334,6 +351,12 @@ uint256_t readPacket(ifstream* ifPacket)
 			}
 		}
 	} // end while
+	if( ifPacket->tellg() == nFileLength )
+	{
+		cerr << "Error: No valid transmissions could be found in input file. Consider re-processing input file or adjusting the source code of this program to accept packets of alternate lengths or encodings." << endl;
+		ifPacket->close();
+		exit(1);
+	}
 	ifPacket->seekg(nPacketStart-1);
 	for(int nReadCount = 0; nReadCount < 256; nReadCount++)
 	{
@@ -356,14 +379,12 @@ uint256_t readPacket(ifstream* ifPacket)
 	} // end for
 
 	return uPacket;
-}
+} // end readPacket(ifstream*)
 
 // Read in a file, dissect packet, and display output
 void dispPacket(uint256_t uPacket)
 {
 	cout << "Displaying packet ..." << endl << endl;
-
-	// This function will search for and use the first valid transmission in a file
 
 	// Declare offset value for which bit of uPacket we need to shift to be the LSB when reading each data field
 	int nShift = 253;
@@ -438,10 +459,10 @@ void dispPacket(uint256_t uPacket)
 					cin.clear();
 					cin.ignore(numeric_limits<streamsize>::max(), '\n');
 					cout << "Error: Improper type, please try again" << endl;
-				} else if(nDivider < 48 || nDivider > 184)
+				} else if(nDivider < BOUNDARY_MIN || nDivider > BOUNDARY_MAX)
 				{
 					cout << "Error: Improper value, please try again" << endl;
-				} else if( nDivider % 8 )
+				} else if( nDivider % BYTE_LEN )
 				{
 					cout << "Error: Not a byte-aligned (multiple of 8) bit, please try again" << endl;
 				} else
@@ -449,7 +470,7 @@ void dispPacket(uint256_t uPacket)
 					bInputOk = 1;
 				}
 			}
-			nAgFixLength = nDivider-47;
+			nAgFixLength = nDivider-KNOWN_FIXED_LENGTH;
 			for(int nMaskBit = 0; nMaskBit < nAgFixLength; nMaskBit++)
 			{
 				uAgFixMask <<= 1;
@@ -529,7 +550,7 @@ void dispPacket(uint256_t uPacket)
 	{
 		cout << "*** Section 2: Agency Fixed ***" << endl;
 		cout << "\tVehicle Class: " << uVehClass << endl;
-		cout << "\tUnknown Field: " << (unsigned)uUnkField << endl;
+		cout << "\tUnknown Field: " << +uUnkField << endl;
 		cout << "*** End Section 2: Agency Fixed ***" << endl << endl;
 
 		cout << "*** Section 3: Reader Programmable ***" << endl;
@@ -556,19 +577,20 @@ void dispPacket(uint256_t uPacket)
 	cout << "*** End Packet ***" << endl;
 	
 	return;
-}
+} // end dispPacket(uint256_t)
 
 // Prompt user and pack data sectors into 256bit packet structure
-void craftPacket(uint256_t* uPacket)
+uint256_t craftPacket()
 {
 	cout << "Crafting packet ..." << endl << endl;
+	uint256_t uPacket = 0;
 	// Create boolean flag so program only continues when user has entered a proper value
 	bool bInputOk = 0;
 	
 	// Declare value to hold header
 	//   Note: The smallest unsigned int that will be used to hold user variables is a uint16_t
 	//   because uint8_t is interpreted as a char unless otherwise casted, complicating the
-	//   process of storing it properly
+	//   process and syntax of storing it properly
 	uint16_t uHeader;
 	// Read in value for header, checking that it is an appropriate value and fits in 3 bits, before
 	//   placing into 256bit packet structure
@@ -577,18 +599,20 @@ void craftPacket(uint256_t* uPacket)
 		cout << "Enter a value for the Header (6 or 7): ";
 		if( !(cin >> uHeader) )
 		{
+			// Clear and flush cin upon error reading int
 			cin.clear();
 			cin.ignore(numeric_limits<streamsize>::max(), '\n');
 			cout << "Error: Improper type, please try again" << endl;
 		} else if(uHeader != 6 && uHeader != 7)
 		{
+			// Make sure user enters proper values according to specification
 			cout << "Error: Improper value, please try again" << endl;
 		} else
 		{
 			bInputOk = 1;
 		}
 	}
-	*uPacket |= uHeader;
+	uPacket |= uHeader;
 
 	// Reset proper input flag. This will occur after each data field entry by user
 	bInputOk = 0;
@@ -601,8 +625,6 @@ void craftPacket(uint256_t* uPacket)
 		cout << "Enter a value for the tag Type (0-7): ";
 		if( !(cin >> uTagType) )
 		{
-// Evaluates a packet's CRC and prompts user to continue or quit if CRC is wrong
-bool checkPacketCRC(uint256_t uPacket);
 			cin.clear();
 			cin.ignore(numeric_limits<streamsize>::max(), '\n');
 			cout << "Error: Improper type, please try again" << endl;
@@ -614,8 +636,8 @@ bool checkPacketCRC(uint256_t uPacket);
 			bInputOk = 1;
 		}
 	}
-	*uPacket <<= 3;
-	*uPacket |= uTagType;
+	uPacket <<= 3;
+	uPacket |= uTagType;
 
 	bInputOk = 0;
 
@@ -638,8 +660,8 @@ bool checkPacketCRC(uint256_t uPacket);
 			bInputOk = 1;
 		}
 	}
-	*uPacket <<= 3;
-	*uPacket |= uAppID;
+	uPacket <<= 3;
+	uPacket |= uAppID;
 
 	bInputOk = 0;
 
@@ -662,8 +684,8 @@ bool checkPacketCRC(uint256_t uPacket);
 			bInputOk = 1;
 		}
 	}
-	*uPacket <<= 7;
-	*uPacket |= uGroupID;
+	uPacket <<= 7;
+	uPacket |= uGroupID;
 
 	bInputOk = 0;
 
@@ -686,8 +708,8 @@ bool checkPacketCRC(uint256_t uPacket);
 			bInputOk = 1;
 		}
 	}
-	*uPacket <<= 7;
-	*uPacket |= uAgID;
+	uPacket <<= 7;
+	uPacket |= uAgID;
 
 	bInputOk = 0;
 
@@ -710,8 +732,8 @@ bool checkPacketCRC(uint256_t uPacket);
 			bInputOk = 1;
 		}
 	}
-	*uPacket <<= 24;
-	*uPacket |= uSerial;
+	uPacket <<= 24;
+	uPacket |= uSerial;
 
 	bInputOk = 0;
 
@@ -732,10 +754,10 @@ bool checkPacketCRC(uint256_t uPacket);
 			cin.clear();
 			cin.ignore(numeric_limits<streamsize>::max(), '\n');
 			cout << "Error: Improper type, please try again" << endl;
-		} else if(nDivider < 48 || nDivider > 184)
+		} else if(nDivider < BOUNDARY_MIN || nDivider > BOUNDARY_MAX)
 		{
 			cout << "Error: Improper value, please try again" << endl;
-		} else if( nDivider % 8 )
+		} else if( nDivider % BYTE_LEN )
 		{
 			cout << "Error: Not a byte-aligned (multiple of 8) bit, please try again" << endl;
 		} else
@@ -748,7 +770,7 @@ bool checkPacketCRC(uint256_t uPacket);
 
 	// Determine the length and maximum value of the Agency Fixed field based on the data field border
 	//   that the user specified above
-	int nSectionLength = nDivider - 47;
+	int nSectionLength = nDivider - KNOWN_FIXED_LENGTH;
 	uint256_t uAgFixed;
 	uint256_t uMaxVal = 1;
 	uMaxVal <<= nSectionLength;
@@ -770,8 +792,8 @@ bool checkPacketCRC(uint256_t uPacket);
 			bInputOk = 1;
 		}
 	}
-	*uPacket <<= nSectionLength;
-	*uPacket |= uAgFixed;
+	uPacket <<= nSectionLength;
+	uPacket |= uAgFixed;
 	
 	bInputOk = 0;
 
@@ -800,8 +822,8 @@ bool checkPacketCRC(uint256_t uPacket);
 			bInputOk = 1;
 		}
 	}
-	*uPacket <<= nSectionLength;
-	*uPacket |= uProgData1;
+	uPacket <<= nSectionLength;
+	uPacket |= uProgData1;
 
 	bInputOk = 0;
 
@@ -824,8 +846,8 @@ bool checkPacketCRC(uint256_t uPacket);
 			bInputOk = 1;
 		}
 	}
-	*uPacket <<= 8;
-	*uPacket |= uHOVFeed;
+	uPacket <<= 8;
+	uPacket |= uHOVFeed;
 
 	bInputOk = 0;
 
@@ -851,53 +873,69 @@ bool checkPacketCRC(uint256_t uPacket);
 			bInputOk = 1;
 		}
 	}
-	*uPacket <<= 40;
-	*uPacket |= uProgData2;
+	uPacket <<= 40;
+	uPacket |= uProgData2;
 
 	// Calculate and append CRC-XMODEM error correction code to end of packet
-	*uPacket <<= 16;
-	uint16_t uCRC = calcPacketCRC(*uPacket);
-	*uPacket |= uCRC;
-
-	return;
-}
-
-// Call function to craft packet, then write to specified output file
-void writePacket(ofstream* ofPacket)
-{
-	cout << "Writing packet to file ..." << endl << endl;
-	uint256_t uPacket = 0;
-	craftPacket(&uPacket);
-	cout << "Packet crafting successful." << endl;
+	uPacket <<= 16;
+	uint16_t uCRC = calcPacketCRC(uPacket);
+	uPacket |= uCRC;
 	
+	// Output complete packet in decimal, hex, and binary
+	cout << endl << "Packet generation successful" << endl;
+	cout << "Generated packet:" << endl;
+	cout << "\tDecimal: " << uPacket << endl;
+	cout << "\tHex: " << showbase << hex << uPacket << dec << endl;
+	// Use bitset to output packet as binary
+	//   However, bitset does not have a constructor that can accept boost's uint256_t
+	//   So, create bitshift and bitmask uint256_t to create 4 uin64_t values which can be strung together
+	//   This will appear as one continuous 256 bit output
+	uint64_t uHigh = static_cast<uint64_t>(uPacket >> 192);
+	uint64_t uMidHigh = static_cast<uint64_t>(uPacket >> 128 & 0xFFFFFFFFFFFFFFFFu);
+	uint64_t uMidLow = static_cast<uint64_t>(uPacket >> 64 & 0xFFFFFFFFFFFFFFFFu);
+	uint64_t uLow = static_cast<uint64_t>(uPacket & 0xFFFFFFFFFFFFFFFFu);
+	cout << "\tBinary: " << bitset<64>(uHigh) << bitset<64>(uMidHigh) << bitset<64>(uMidLow) << bitset<64>(uLow) << endl << endl;
+	return uPacket;
+} // end craftPacket()
+
+// Write packet to specified output file
+void writePacket(uint256_t uPacket, ofstream* ofPacket)
+{
+	if( !ofPacket->good() )
+	{
+		cerr << "Error in output file, quitting..." << endl;
+		exit(1);
+	}
+	
+	cout << "Writing packet to file ..." << endl << endl;
+	
+	// Create a 32-byte array to hold data
 	uint8_t auBytes[32] = {0};
+	// Initialize a temporary variable to read each byte
 	uint8_t uTempByte = 0;
 	for(int nByte = 0; nByte < 32; nByte++)
 	{
-		uTempByte = (unsigned)(uPacket >> ( 8*nByte) & 0xFFu);
-		cout << (unsigned)uTempByte << endl;
-		cin.get();
+		// For each byte, starting from the LSB, shift and mask packet to store in temporary reader byte
+		//   Then, store in array, starting from the back (high index)
+		uTempByte = static_cast<uint8_t>(uPacket >> ( BYTE_LEN*nByte) & 0xFFu);
 		auBytes[32-1-nByte] = uTempByte;
 	}
-
-
-	cout << "Generated packet (an unsigned integer): " << endl << uPacket << endl << endl;
 	char* pcOutByte = (char*)&auBytes[0];
 	// Write one byte of binary data at a time
-	//   Additionally, write from least significant byte to most significant byte to retain transmission order
+	//   Additionally, write from most significant byte to least significant byte to retain transmission order
 	for(int nWriteCount = 0; nWriteCount < 32; nWriteCount++)
 	{
 		ofPacket->write(pcOutByte, 1);
 		pcOutByte++;
 	}
 	return;
-}
+} // end writePacket(uint256_t, ofstream*)
 
 // Check if a given string exists in the command line arguments
 bool argExists(char** ppcBegin, char** ppcEnd, string sOption)
 {
 	return find(ppcBegin, ppcEnd, sOption) != ppcEnd;
-}
+} // end argExists(char**, char**, string)
 
 // If a string exists in the command line arguments, get its accompanying (following) value
 string getArg(char** ppcBegin, char** ppcEnd, string sOption)
@@ -909,39 +947,48 @@ string getArg(char** ppcBegin, char** ppcEnd, string sOption)
 		return strResult;
 	}
 	return 0;
-}
+} // end getArg(char**, char**, string)
 
 // Calculates and returns CRC for first 240 bits of a packet
 uint16_t calcPacketCRC(uint256_t uPacket)
 {
 	cout << "Calculating packet error check code..." << endl;
 	
+	// Create a 32-byte array to hold data
 	uint8_t auReflected[32] = {0};
+	// Initialize a temporary variable to read each byte
 	uint8_t uTempByte = 0;
 	for(int nByte = 0; nByte < 32; nByte++)
 	{
-		uTempByte = (unsigned)(uPacket >> ( 8*nByte) & 0xFFu);
+		// For each byte, starting from the LSB, shift and mask packet to store in temporary reader byte
+		//   Then, store in array, starting from the back (high index)
+		uTempByte = static_cast<uint8_t>(uPacket >> ( BYTE_LEN*nByte) & 0xFFu);
 		auReflected[32-1-nByte] = uTempByte;
 	}
-
+	// Call CRC generation library function, using proper initialization values for CRC-XMODEM, and return 
 	uint16_t uCRC = CRC::Calculate( auReflected, 30, CRC::CRC_16_XMODEM() );
 	return uCRC;	
-}
+} // end calcPacketCRC(uint256_t)
 
-// Evaluates a packet's CRC and prompts user to continue or quit if CRC is wrong
+// Evaluates a packet's CRC and prompts user to continue or quit if CRC does not match
 bool checkPacketCRC(uint256_t uPacket)
 {
+	// Read CRC from packet
 	uint16_t uProvided = static_cast<uint16_t>(uPacket & 0xFFFFu);
+	// Calculate expected CRC from first 240 bits of packet
 	uint16_t uCRC = calcPacketCRC(uPacket);
 
+	// Output both CRC
 	cout << "\tCRC from Packet: " << showbase << hex << uProvided << dec << endl;
 	cout << "\tCalculated CRC from Packet Data: " << hex << uCRC << dec << endl;
 	if( uCRC == uProvided )
 	{
+		// Continue as normal if calculated and read CRC match
 		cout << "\tValues match, continuing..." << endl << endl;
 		return true;
 	} else
 	{
+		// Otherwise, let user know values might be incorrect, but let them choose to continue or not
 		string strContinue;
 		cout << "Values do not match!" << endl;
 
@@ -965,7 +1012,7 @@ bool checkPacketCRC(uint256_t uPacket)
 		} while( !bInputOk );
 	}
 	return false;
-}
+} // end checkPacketCRC(uint256_t)
 
 /****************************/
 /* END FUNCTION DEFINITIONS */
