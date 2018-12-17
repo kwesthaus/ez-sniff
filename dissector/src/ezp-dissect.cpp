@@ -225,23 +225,28 @@ int main(int argc, char* argv[])
 	{
 		// If syntax is not ok, output program options and exit with error
 		cout << endl;
-		cout << "***Usage:***" << endl;
-		cout << "ezp-dissect [-i \"input file name\"] [-o \"output file name\"] [-h] [-b] [-m]" << endl;
+		cout << "*** Usage: ***" << endl;
+		cout << "ezp-dissect [-i \"input file name\"] [-g] [--grc-file] [-s] [--short-file] [-o \"output file name\"]" << endl;
 		cout << endl;
 		cout << "File operations:" << endl;
-		cout << "-i \"input file name\"\t" << "input packet file to read and analyze" << endl;
-		cout << "-o \"output file name\"\t" << "output packet file to craft" << endl;
-		cout << "*Note: one (and only one) of either -i or -o must be specified" << endl;
+		cout << "	-i \"input file name\"\t" << "Input packet file to read and analyze" << endl;
+		cout << "	-o \"output file name\"\t" << "Output packet file to craft and write" << endl;
+		cout << "	** Note: valid options include -i only (read and display), -o only (craft, display, and write)," << endl;
+		cout << "	**     or both -i and -o (read GRC file, output as short file)" << endl;
+		cout << "	** If both -i and -o are specified, --grc-file is assumed and should not be specified (nor -g)" << endl;
 		cout << endl;
-		cout << "Output formatting:" << endl;
-		cout << "-h\t\t" << "hex" << endl;
-		cout << "-b\t\t" << "binary" << endl;
-		cout << "-m\t\t" << "Manchester-encoded binary (as is used by the transponder and reader)" << endl;
+		cout << "Input file formatting:" << endl;
+		cout << "	-g, --grc-file\t\t" << "Read in a file output by a GnuRadio flowchart." << endl;
+		cout << "\t\t\t\t** Expects unpacked (one bit per byte), Manchester encoded, and non-cut data" << endl;
+		cout << "	-s, --short-file\t" << "Reads in a file containing only the exact packet" << endl;
+		cout << "\t\t\t\t** Expects a 256bit MSB-first file" << endl;
+		cout << "\t\t\t\t** Test packets output by this program conform to this option" << endl;
 		cout << endl;
 		cout << "***Examples:***" << endl;
-		cout << "ezp-dissect -i reader_cap.ezp" << endl;
-		cout << "ezp-dissect -i xponder_ohioturnpike.ezp -m" << endl;
-		cout << "ezp-dissect -o reader_buzzHMI.ezp" << endl;
+		cout << "	ezp-dissect -i reader_cap.ezp --short-file" << endl;
+		cout << "	ezp-dissect -i xponder_ohioturnpike.grc.bytes -g" << endl;
+		cout << "	ezp-dissect -o reader_buzzHMI.ezp" << endl;
+		cout << "	ezp-dissect -i xponder_nonconformant.grc.bytes -o xponder-nonconformant.ezp" << endl;
 		cout << endl;
 		exit(1);
 	}
@@ -404,8 +409,9 @@ uint256_t readGRCPacket(ifstream* ifPacket)
 			}
 		}
 	} // end while
-	if( ifPacket->tellg() == nFileLength )
+	if( ifPacket->tellg() == nFileLength && nPacketLength < 511)
 	{
+		cerr << nPacketLength << endl;
 		cerr << "Error: No valid transmissions could be found in input file. Consider re-processing input file or adjusting the source code of this program to accept packets of alternate lengths or encodings." << endl;
 		ifPacket->close();
 		exit(1);
