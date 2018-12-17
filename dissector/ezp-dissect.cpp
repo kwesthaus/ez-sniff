@@ -449,7 +449,7 @@ void dispPacket(uint256_t uPacket)
 					bInputOk = 1;
 				}
 			}
-			nAgFixLength = nDivider-17;
+			nAgFixLength = nDivider-47;
 			for(int nMaskBit = 0; nMaskBit < nAgFixLength; nMaskBit++)
 			{
 				uAgFixMask <<= 1;
@@ -869,15 +869,26 @@ void writePacket(ofstream* ofPacket)
 	uint256_t uPacket = 0;
 	craftPacket(&uPacket);
 	cout << "Packet crafting successful." << endl;
+	
+	uint8_t auBytes[32] = {0};
+	uint8_t uTempByte = 0;
+	for(int nByte = 0; nByte < 32; nByte++)
+	{
+		uTempByte = (unsigned)(uPacket >> ( 8*nByte) & 0xFFu);
+		cout << (unsigned)uTempByte << endl;
+		cin.get();
+		auBytes[32-1-nByte] = uTempByte;
+	}
+
+
 	cout << "Generated packet (an unsigned integer): " << endl << uPacket << endl << endl;
-	char* pcOutByte = (char*)&uPacket;
-	pcOutByte += 31;
+	char* pcOutByte = (char*)&auBytes[0];
 	// Write one byte of binary data at a time
 	//   Additionally, write from least significant byte to most significant byte to retain transmission order
 	for(int nWriteCount = 0; nWriteCount < 32; nWriteCount++)
 	{
 		ofPacket->write(pcOutByte, 1);
-		pcOutByte--;
+		pcOutByte++;
 	}
 	return;
 }
