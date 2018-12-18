@@ -411,7 +411,6 @@ uint256_t readGRCPacket(ifstream* ifPacket)
 	} // end while
 	if( ifPacket->tellg() == nFileLength && nPacketLength < 511)
 	{
-		cerr << nPacketLength << endl;
 		cerr << "Error: No valid transmissions could be found in input file. Consider re-processing input file or adjusting the source code of this program to accept packets of alternate lengths or encodings." << endl;
 		ifPacket->close();
 		exit(1);
