@@ -1,2 +1,2 @@
-# ezpass-sniff
-Internship project with Kudu Dynamics - demodulate and dissect EZPass toll packets
+# ez-sniff
+Demodulate and dissect RF packets from toll booth transponders in the E-ZPass network
