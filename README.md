@@ -12,9 +12,9 @@ Demodulate and dissect radio frequency (RF) packets from toll booth transponders
    - [Dependencies](#dependencies)
    - [Building](#building)
 3. [Usage](#usage)
-   - [Receiving and Analyzing](#receiving_and_analyzing)
-   - [Transmitting or Cloning](#transmitting_or_cloning)
-   - [C++ Script](#c++_script)
+   - [Receiving and Analyzing](#receiving-and-analyzing)
+   - [Transmitting or Cloning](#transmitting-or-cloning)
+   - [C++ Script](#c++-script)
 4. [Licenses](#licenses)
 
 ## Introduction
@@ -38,9 +38,9 @@ The GNURadio set of tools can likely be installed from your package manager, whi
 
 ### Building
 Begin by cloning the repo. Assuming you have the Boost header libraries properly installed, compiling should then be as simple as:
-```console
-cd src
-g++ ./ezp-dissect.cpp -o ./ezp-dissect.out
+``` bash
+> cd src
+> g++ ./ezp-dissect.cpp -o ./ezp-dissect.out
 ```
 
 ## Usage
