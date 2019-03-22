@@ -9,12 +9,12 @@ Demodulate and dissect radio frequency (RF) packets from toll booth transponders
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Setup](#setup)
- - [Dependencies](#dependencies)
- - [Building](#building)
+   - [Dependencies](#dependencies)
+   - [Building](#building)
 3. [Usage](#usage)
- - [Receiving and Analyzing](#receiving_and_analyzing)
- - [Transmitting or Cloning](#transmitting_or_cloning)
- - [C++ Script](#c++_script)
+   - [Receiving and Analyzing](#receiving_and_analyzing)
+   - [Transmitting or Cloning](#transmitting_or_cloning)
+   - [C++ Script](#c++_script)
 4. [Licenses](#licenses)
 
 ## Introduction
@@ -46,16 +46,16 @@ g++ ./ezp-dissect.cpp -o ./ezp-dissect.out
 ## Usage
 This code serves as the software to reverse engineer and experiment with E-ZPass toll booth transponders in various ways. Uses include:
 ### Receiving and Analyzing
-* Use an SDR device to record raw RF samples on the appropriate frequency (usually 914.3-916.0MHz) while located near a transponder passing through a toll booth.
-* Adjust the variables for LISTOFVARIABLES in one of either NEWFILENAMES for your specific use case.
-* Process the raw capture file with the adjusted GRC flowchart.
-* Dissect and analyze the processed file with the compiled C++ script to read transponder packet data.
+1. Use an SDR device to record raw RF samples on the appropriate frequency (usually 914.3-916.0MHz) while located near a transponder passing through a toll booth.
+2. Adjust the variables for LISTOFVARIABLES in one of either NEWFILENAMES for your specific use case.
+3. Process the raw capture file with the adjusted GRC flowchart.
+4. Dissect and analyze the processed file with the compiled C++ script to read transponder packet data.
 This process was tested using captures from an RTL-SDR sampling at 3.2MHz, and a lab-grade SDR sampling at 10MHz.
 
 ### Transmitting or Cloning
-* Modify the variables for LISTOFVARIABLES in the OUTPUTGRC file for your specific use.
-* Process a packet data file (either from capturing with SDR or a test packet from the C++ script) with the OUTPUTGRCFILENAME GRC flowchart.
-* Transmit the raw RF sample file produced with a capable SDR device. This program currently outputs 8-bit SIGNEDORNOT? samples for use with an Osmo-Fl2k device.
+1. Modify the variables for LISTOFVARIABLES in the OUTPUTGRC file for your specific use.
+2. Process a packet data file (either from capturing with SDR or a test packet from the C++ script) with the OUTPUTGRCFILENAME GRC flowchart.
+3. Transmit the raw RF sample file produced with a capable SDR device. This program currently outputs 8-bit SIGNEDORNOT? samples for use with an Osmo-Fl2k device.
 
 ### C++ Script
 Command-line usage for the C++ processing and analysis script is as follows:
