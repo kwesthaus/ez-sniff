@@ -352,7 +352,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -403,7 +403,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -450,7 +450,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -493,7 +493,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -540,7 +540,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>file</key>
@@ -595,7 +595,7 @@
     </param>
     <param>
       <key>file</key>
-      <value>/home/orville/Documents/cybersecurity/kudu/easypass_captures/mine/oh_day1/first/during/reader/grc.bytes</value>
+      <value>/home/orville/Documents/tech/projects/cybersecurity/rf/kudu/easypass_captures/mine/oh_day1/first/during/reader/grc.bytes</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -646,7 +646,7 @@
     </param>
     <param>
       <key>file</key>
-      <value>/home/orville/Documents/cybersecurity/kudu/easypass_captures/mine/oh_day1/first/during/rfcomms.raw</value>
+      <value>/home/orville/Documents/tech/projects/cybersecurity/rf/kudu/easypass_captures/mine/oh_day1/first/during/rfcomms.raw</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -701,7 +701,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -752,7 +752,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -909,7 +909,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -987,7 +987,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -1050,7 +1050,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -1121,7 +1121,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -1180,7 +1180,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -1554,7 +1554,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>fftsize</key>
