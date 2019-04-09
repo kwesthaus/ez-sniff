@@ -52,15 +52,15 @@ Begin by cloning the repo. Assuming you have the Boost header libraries properly
 This code serves as the software to reverse engineer and experiment with E-ZPass toll booth transponders in various ways. Uses include:
 ### Receiving and Analyzing
 1. Use an SDR device to record raw RF samples on the appropriate frequency (usually 914.3-916.0MHz) while located near a transponder passing through a toll booth.
-2. Adjust the variables for LISTOFVARIABLES in one of either NEWFILENAMES for your specific use case.
+2. Adjust the "capture_freq", "xponder_freq", "reader_freq", "samp_rate", and "target_rate" variables in grc/rtlsdr_both.grc for your specific use case.
 3. Process the raw capture file with the adjusted GRC flowchart.
 4. Dissect and analyze the processed file with the compiled C++ script to read transponder packet data.
-This process was tested using captures from an RTL-SDR sampling at 3.2MHz, and a lab-grade SDR sampling at 10MHz.
+This process was tested using captures from an RTL-SDR sampling at 3.2MHz and 2.4MHz, and a lab-grade SDR sampling at 10MHz.
 
 ### Transmitting or Cloning (For Research Purposes Only)
-1. Modify the "File Source" and "File Sink" blocks in the output_osmo.grc file for your specific use. The "samp_rate" and "offset_freq" variables can be modified to change the harmonic frequency at which the Osmo-Fl2k will output, which is currently set to 915.75MHz (7th harmonic - 7*140MHz - 64.2MHz - 0.05MHz drift).
-2. Process a packet data file (either from the above "Receiving and Analyzing" steps or a test packet from the C++ script) with the output_osmo.grc GRC flowchart.
-3. Transmit the raw RF sample file produced with a capable SDR device. This program currently outputs 8-bit SIGNEDORNOT? samples for use with an Osmo-Fl2k device.
+1. Modify the "File Source" and "File Sink" blocks in the grc/output_osmo.grc file for your specific use. The "samp_rate" and "offset_freq" variables can be modified to change the harmonic frequency at which the Osmo-FL2k will output, which is currently set to 915.75MHz (7th harmonic: 7*140MHz - 64.2MHz - 0.05MHz drift).
+2. Process a packet data file (either from the above "Receiving and Analyzing" steps or a test packet from the C++ script) with the grc/output_osmo.grc GRC flowchart.
+3. Transmit the raw RF sample file produced with a capable SDR device. This program currently outputs 8-bit SIGNEDORNOT? samples for use with an Osmo-FL2k device.
 
 ### C++ Script
 Command-line usage for the C++ processing and analysis script is as follows:
