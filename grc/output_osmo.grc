@@ -495,11 +495,11 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>file</key>
-      <value>/home/orville/Documents/tech/projects/cybersecurity/rf/kudu/easypass_captures/provided/2/during/reader/final.bits</value>
+      <value>/home/orville/Documents/tech/projects/cybersecurity/rf/kudu/code/git/ez-sniff/demo/oh-11_21-middle-during-reader.ezp</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -554,7 +554,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>file</key>
@@ -1056,7 +1056,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>_coordinate</key>
