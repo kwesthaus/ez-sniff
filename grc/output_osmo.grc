@@ -444,11 +444,11 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>file</key>
-      <value>/home/orville/Documents/tech/projects/cybersecurity/rf/osmo-fl2k/datagen/pulse-packet/multdata_mod.bin</value>
+      <value>../demo/gendata-mod.bin</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -495,7 +495,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>file</key>
@@ -554,11 +554,11 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>file</key>
-      <value>/home/orville/Documents/tech/projects/cybersecurity/rf/osmo-fl2k/datagen/pulse-packet/multdata_pre.bytes</value>
+      <value>../demo/gendata-pre.bytes</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -609,7 +609,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>0</value>
+      <value>1</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -1056,7 +1056,7 @@
     </param>
     <param>
       <key>_enabled</key>
-      <value>1</value>
+      <value>0</value>
     </param>
     <param>
       <key>_coordinate</key>

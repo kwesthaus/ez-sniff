@@ -1,11 +1,13 @@
 # ez-sniff : a software-defined radio (SDR) utility
 Demodulate and dissect radio frequency (RF) packets from toll booth transponders in the E-ZPass network
 
+
 ## Disclaimer
 * Radio frequency signals should be filtered before transmission to avoid interference with nearby devices.
 * All provided demo E-ZPass packets were captured with explicit permission of the owner.
 * Toll booth evasion is illegal, and E-ZPass has infrastructure in place to catch people who attempt to leverage this code to perform attacks.
 * I don't take responsibility for anything you do with this code.
+
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -15,8 +17,9 @@ Demodulate and dissect radio frequency (RF) packets from toll booth transponders
 3. [Usage](#usage)
    - [Receiving and Analyzing](#receiving-and-analyzing)
    - [Transmitting or Cloning](#transmitting-or-cloning)
-   - [C++ Script](#c-script)
+   - [C++ Disection Script](#c-disection-script)
 4. [Licenses](#licenses)
+
 
 ## Introduction
 E-ZPass is a toll collection network which mostly operates in the eastern half of the United States. E-ZPass, like many toll agencies, offers a fast lane service which relies on a small radio frequency (or RF) device on the windshield of each customer car. This RF device can be scanned at high speed to charge an account, rather than paying in cash at the toll booth. E-ZPass uses [Janus Interior Transponders from Kapsch TrafficCom,](https://www.kapsch.net/ktc/downloads/datasheets/in-vehicle/915/Kapsch-KTC-DS-JANUS_Interior.PDF?lang=en-US) which implements the Kapsch TDM protocol for its RF communications. Access to a PDF of the specificiation can be requested as a company or individual from [this registration page.](http://tdm.kapschtraffic.com/registration.asp)
@@ -31,8 +34,13 @@ This project began as part of the interview process for a summer internship (whi
 
 I gave a presentation on this research at BSides Columbus 2019. A video of the presentation and slides is accessible on [this page at IronGeek.](https://www.irongeek.com/i.php?page=videos/bsidescolumbus2019/bsidescmh2019-3-01-e-zhack-an-update-on-sdr-and-toll-booth-reverse-engineering-kyle-westhaus)
 
+
 ## Setup
 This program is currently provided for Linux systems and has been tested on Manjaro with the 4.19 kernel and GNURadio 3.7.13.4.
+The below image shows an Osmo-FL2k and the antenna of an RTL-SDR attached to a laptop near an E-ZPass transponder.
+![Hardware setup picture](images/clone-setup.jpg)
+
+
 ### Dependencies
 This project makes use of other libraries including:
 * [Daniel Bahr's single-header CRC++](https://github.com/d-bahr/CRCpp) (included in this repo)
@@ -41,12 +49,16 @@ Boost libraries can be obtained either from your system's package manager or acc
 * The files in the grc directory rely on GNURadio Companion (GRC) (not included in this repo)
 The GNURadio set of tools can likely be installed from your package manager, which is typically much simpler than building from source.
 
+
 ### Building
 Begin by cloning the repo. Assuming you have the Boost header libraries properly installed, compiling should then be as simple as:
 ``` bash
-> cd src
-> g++ ./ezp-dissect.cpp -o ./ezp-dissect.out
+> cd dissector/src
+> g++ ./ezp-dissect.cpp -o ../bin/ezp-dissect.out
+> cd ../../datagen
+> g++ ./mult-byte-gen.cpp -o ../bin/mult-byte-gen.out
 ```
+
 
 ## Usage
 This code serves as the software to reverse engineer and experiment with E-ZPass toll booth transponders in various ways. Uses include:
@@ -54,15 +66,25 @@ This code serves as the software to reverse engineer and experiment with E-ZPass
 1. Use an SDR device to record raw RF samples on the appropriate frequency (usually 914.3-916.0MHz) while located near a transponder passing through a toll booth.
 2. Adjust the "capture_freq", "xponder_freq", "reader_freq", "samp_rate", and "target_rate" variables in grc/rtlsdr_both.grc for your specific use case.
 3. Process the raw capture file with the adjusted GRC flowchart.
-4. Dissect and analyze the processed file with the compiled C++ script to read transponder packet data.
-This process was tested using captures from an RTL-SDR sampling at 3.2MHz and 2.4MHz, and a lab-grade SDR sampling at 10MHz.
+4. Analyze the processed file with the C++ dissection script to read transponder packet data.
+This process was tested using captures from an RTL-SDR sampling at 2.4MHz and 3.2MHz, and a lab-grade SDR sampling at 10MHz. Check out [this project](https://github.com/pvachon/zepassd) if you have a USRP.
 
-### Transmitting or Cloning (For Research Purposes Only)
-1. Modify the "File Source" and "File Sink" blocks in the grc/output_osmo.grc file for your specific use. The "samp_rate" and "offset_freq" variables can be modified to change the harmonic frequency at which the Osmo-FL2k will output, which is currently set to 915.75MHz (7th harmonic: 7*140MHz - 64.2MHz - 0.05MHz drift).
-2. Process a packet data file (either from the above "Receiving and Analyzing" steps or a test packet from the C++ script) with the grc/output_osmo.grc GRC flowchart.
-3. Transmit the raw RF sample file produced with a capable SDR device. This program currently outputs 8-bit SIGNEDORNOT? samples for use with an Osmo-FL2k device.
 
-### C++ Script
+### Transmitting and Cloning (For Research Purposes Only)
+1. Use the C++ script in the datagen directory to add interrogation pulses and proper timing gaps to a GRC-output packet file from the above "Receiving and Analysis" steps.
+2. Modify the "File Source" and "File Sink" blocks in the grc/output_osmo.grc file for your specific use. The "samp_rate" and "offset_freq" variables can be modified to change the harmonic frequency at which the Osmo-FL2k will output, which is currently set to 915.75MHz (at the 7th harmonic: 7*140MHz - 64.2MHz - 0.05MHz drift).
+3. Process a modified packet data file from Step 1 with the output_osmo GRC flowchart.
+4. Transmit the raw RF sample file produced with a capable SDR device. This program currently outputs 8-bit signed samples for use with an Osmo-FL2k device.
+
+The image below shows E-ZPass transponder trigger pulses successfully being output by the Osmo-FL2k, as seen in the waterfall of GQRX using the RTL-SDR.
+![GQRX cloning triggers image](images/gqrx-clone-triggers.png)
+
+Next is an Inspectrum window showing a comparison of a packet output from a real E-ZPass reader and from an Osmo-FL2k after using the utilities in this repo. Their similarity shows that the modulation is correctly imitated. However, these two samples were recorded at different RTL-SDR gain values; when recorded with the same settings, the Osmo-FL2k output is barely visible, confirming the need for an amp for successful cloning.
+![Real E-ZPass reader packet](images/inspectrum-tollbooth.png)
+![Osmo-FL2k packet](images/inspectrum-osmo.png)
+
+
+### C++ Dissection Script
 Command-line usage for the C++ processing and analysis script is as follows:
 ```
 
@@ -83,7 +105,7 @@ Input file formatting:
 				** Expects a 256bit MSB-first file
 				** Test packets output by this program conform to this option
 
-***Examples:***
+*** Examples: ***
 	ezp-dissect -i reader_cap.ezp --short-file
 	ezp-dissect -i xponder_ohioturnpike.grc.bytes -g
 	ezp-dissect -o reader_buzzHMI.ezp
@@ -91,6 +113,7 @@ Input file formatting:
 
 
 ```
+
 
 ## Licenses
 This code is free to use and available under the GPLv3 license. Full license texts for both this project and associated libraries are located in the LICENSES directory.
