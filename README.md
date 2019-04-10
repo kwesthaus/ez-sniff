@@ -37,6 +37,7 @@ I gave a presentation on this research at BSides Columbus 2019. A video of the p
 
 ## Setup
 This program is currently provided for Linux systems and has been tested on Manjaro with the 4.19 kernel and GNURadio 3.7.13.4.
+
 The below image shows an Osmo-FL2k and the antenna of an RTL-SDR attached to a laptop near an E-ZPass transponder.
 
 <img src="images/clone-setup.jpg" height="300" alt="Hardware setup picture" >
@@ -68,16 +69,16 @@ This code serves as the software to reverse engineer and experiment with E-ZPass
 2. Adjust the "capture_freq", "xponder_freq", "reader_freq", "samp_rate", and "target_rate" variables in grc/rtlsdr_both.grc for your specific use case.
 3. Process the raw capture file with the adjusted GRC flowchart.
 4. Analyze the processed file with the C++ dissection script to read transponder packet data.
-This process was tested using captures from an RTL-SDR sampling at 2.4MHz and 3.2MHz, and a lab-grade SDR sampling at 10MHz. Check out [this project](https://github.com/pvachon/zepassd) if you have a USRP.
+This process was tested using captures from an RTL-SDR sampling at 2.4MHz and 3.2MHz, and a lab-grade SDR sampling at 10MHz.
 
 
 ### Transmitting and Cloning (For Research Purposes Only)
-1. Use the C++ script in the datagen directory to add interrogation pulses and proper timing gaps to a GRC-output packet file from the above "Receiving and Analysis" steps.
+1. Use the C++ script in the datagen directory to add interrogation pulses and proper timing gaps to a GRC-output packet file from the above "Receiving and Analyzing" steps.
 2. Modify the "File Source" and "File Sink" blocks in the grc/output_osmo.grc file for your specific use. The "samp_rate" and "offset_freq" variables can be modified to change the harmonic frequency at which the Osmo-FL2k will output, which is currently set to 915.75MHz (at the 7th harmonic: 7*140MHz - 64.2MHz - 0.05MHz drift).
 3. Process a modified packet data file from Step 1 with the output_osmo GRC flowchart.
-4. Transmit the raw RF sample file produced with a capable SDR device. This program currently outputs 8-bit signed samples for use with an Osmo-FL2k device.
+4. Transmit the produced raw RF sample file with a capable SDR device in order to trigger and overwrite the contents of an E-ZPass transponder. This program currently outputs 8-bit signed samples for use with an Osmo-FL2k device. Check out [this project](https://github.com/pvachon/zepassd) if you have a USRP.
 
-The image below shows E-ZPass transponder trigger pulses successfully being output by the Osmo-FL2k, as seen in the waterfall of GQRX using the RTL-SDR.
+The image below shows E-ZPass transponder trigger pulses successfully being output by the Osmo-FL2k at 915.75MHz, as seen in the waterfall of GQRX using the RTL-SDR.
 
 <img src="images/gqrx-clone-triggers.png" height="300" alt="GQRX cloning triggers image" >
 
