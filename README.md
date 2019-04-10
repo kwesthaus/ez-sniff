@@ -38,6 +38,7 @@ I gave a presentation on this research at BSides Columbus 2019. A video of the p
 ## Setup
 This program is currently provided for Linux systems and has been tested on Manjaro with the 4.19 kernel and GNURadio 3.7.13.4.
 The below image shows an Osmo-FL2k and the antenna of an RTL-SDR attached to a laptop near an E-ZPass transponder.
+
 <img src="images/clone-setup.jpg" height="300" alt="Hardware setup picture" >
 
 
@@ -77,12 +78,12 @@ This process was tested using captures from an RTL-SDR sampling at 2.4MHz and 3.
 4. Transmit the raw RF sample file produced with a capable SDR device. This program currently outputs 8-bit signed samples for use with an Osmo-FL2k device.
 
 The image below shows E-ZPass transponder trigger pulses successfully being output by the Osmo-FL2k, as seen in the waterfall of GQRX using the RTL-SDR.
+
 <img src="images/gqrx-clone-triggers.png" height="300" alt="GQRX cloning triggers image" >
 
 Next is an Inspectrum window showing a comparison of a packet output from a real E-ZPass reader and from an Osmo-FL2k after using the utilities in this repo. Their similarity shows that the modulation is correctly imitated. However, these two samples were recorded at different RTL-SDR gain values; when recorded with the same settings, the Osmo-FL2k output is barely visible, confirming the need for an amp for successful cloning.
 
-<img src="images/inspectrum-tollbooth.png" height="300" alt="Real E-ZPass reader packet" >
-<img src="images/inspectrum-osmo.png" height="300" alt="Osmo-FL2k packet" >
+<img src="images/inspectrum-tollbooth.png" height="300" alt="Real E-ZPass reader packet" > <img src="images/inspectrum-osmo.png" height="300" alt="Osmo-FL2k packet" >
 
 
 ### C++ Dissection Script
