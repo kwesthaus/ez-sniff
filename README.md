@@ -16,8 +16,8 @@ Demodulate and dissect radio frequency (RF) packets from toll booth transponders
    - [Building](#building)
 3. [Usage](#usage)
    - [Receiving and Analyzing](#receiving-and-analyzing)
-   - [Transmitting or Cloning](#transmitting-or-cloning)
-   - [C++ Disection Script](#c-disection-script)
+   - [Transmitting and Cloning (For Research Purposes Only)](#transmitting-and-cloning-for-research-purposes-only)
+   - [C++ Disection Script](#c-dissection-script)
 4. [Licenses](#licenses)
 
 
