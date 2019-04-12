@@ -28,7 +28,7 @@ The TDM protocol is unencrypted, and can be experimented with using some hardwar
 
 However, the RTL-SDR is a receive-only (or RX) device and cannot transmit signals. This project includes tools so that another low-cost (~$20 at [this link](https://www.gearbest.com/cables-connectors/pp_1238337.html)) device known as the Osmo-FL2k (but sold under different hardware names) can be used to transmit (TX) signals and imitate an E-ZPass toll booth reader to interact with the E-ZPass transponders. Information about the device, as well as a download for the device driver, can be found on [the Osmocom wiki.](https://osmocom.org/projects/osmo-fl2k/wiki)
 
-The Osmo-FL2k has been tested to properly output modulated data packets; however, signals from the device alone are too weak to prompt a response from the E-ZPass transponders. Chaining a [filter](https://www.tindie.com/products/gpio/915-mhz-ism-band-pass-filter-amateur-radio-rfid/) and [amplifier](https://usa.banggood.com/4_0W-30dB-915MHz-RF-Power-Amplifier-p-1167605.html?gmcCountry=US&currency=USD&cur_warehouse=CN) to the Osmo-FL2k output should be enough to read and write the transponders, though this currently has not been tested. Any SDR which comes with TX ability should work without needing these additional parts, though will likely be more expensive.
+The Osmo-FL2k has been tested to properly output modulated data packets; however, signals from the device alone are too weak to prompt a response from the E-ZPass transponders. Chaining a [filter](https://www.tindie.com/products/gpio/915-mhz-ism-band-pass-filter-amateur-radio-rfid/) and [amplifier](https://usa.banggood.com/4_0W-30dB-915MHz-RF-Power-Amplifier-p-1167605.html?gmcCountry=US&currency=USD&cur_warehouse=CN) to the Osmo-FL2k output should be enough to read and write the transponders, though this currently has not been tested. Any SDR which comes with TX ability should work without needing these additional parts, though will likely be more expensive. Check out [this project](https://github.com/pvachon/zepassd) if you have a USRP.
 
 This project began as part of the interview process for a summer internship (which graciously let me keep rights to the code). I continued the research to investigate transmitting when I heard of the Osmo-FL2k.
 
@@ -36,7 +36,7 @@ I gave a presentation on this research at BSides Columbus 2019. A video of the p
 
 
 ## Setup
-This program is currently provided for Linux systems and has been tested on Manjaro with the 4.19 kernel and GNURadio 3.7.13.4.
+This program has been tested on Manjaro Linux with the 4.19 kernel and GNURadio 3.7.13.4.
 
 The below image shows an Osmo-FL2k and the antenna of an RTL-SDR attached to a laptop near an E-ZPass transponder.
 
@@ -66,9 +66,10 @@ Begin by cloning the repo. Assuming you have the Boost header libraries properly
 This code serves as the software to reverse engineer and experiment with E-ZPass toll booth transponders in various ways. Uses include:
 ### Receiving and Analyzing
 1. Use an SDR device to record raw RF samples on the appropriate frequency (usually 914.3-916.0MHz) while located near a transponder passing through a toll booth.
-2. Adjust the "capture_freq", "xponder_freq", "reader_freq", "samp_rate", and "target_rate" variables in grc/rtlsdr_both.grc for your specific use case.
+2. Adjust the "capture_freq", "xponder_freq", "reader_freq", "samp_rate", and "target_rate" variables in [grc/rtlsdr_both.grc](grc/rtlsdr_both.grc) for your specific use case.
 3. Process the raw capture file with the adjusted GRC flowchart.
 4. Analyze the processed file with the C++ dissection script to read transponder packet data.
+
 This process was tested using captures from an RTL-SDR sampling at 2.4MHz and 3.2MHz, and a lab-grade SDR sampling at 10MHz.
 
 
@@ -76,13 +77,16 @@ This process was tested using captures from an RTL-SDR sampling at 2.4MHz and 3.
 1. Use the C++ script in the datagen directory to add interrogation pulses and proper timing gaps to a GRC-output packet file from the above "Receiving and Analyzing" steps.
 2. Modify the "File Source" and "File Sink" blocks in the grc/output_osmo.grc file for your specific use. The "samp_rate" and "offset_freq" variables can be modified to change the harmonic frequency at which the Osmo-FL2k will output, which is currently set to 915.75MHz (at the 7th harmonic: 7*140MHz - 64.2MHz - 0.05MHz drift).
 3. Process a modified packet data file from Step 1 with the output_osmo GRC flowchart.
-4. Transmit the produced raw RF sample file with a capable SDR device in order to trigger and overwrite the contents of an E-ZPass transponder. This program currently outputs 8-bit signed samples for use with an Osmo-FL2k device. Check out [this project](https://github.com/pvachon/zepassd) if you have a USRP.
+4. Transmit the produced raw RF sample file with a capable SDR device in order to trigger and overwrite the contents of an E-ZPass transponder. This program currently outputs 8-bit signed samples for use with an Osmo-FL2k device. Ouput with the Osmo-FL2k works as follows:
+``` bash
+> fl2k_file -s 140e6 gendata-mod.bin
+```
 
-The image below shows E-ZPass transponder trigger pulses successfully being output by the Osmo-FL2k at 915.75MHz, as seen in the waterfall of GQRX using the RTL-SDR.
+The image below shows E-ZPass transponder trigger pulses successfully being output by the Osmo-FL2k at 915.75MHz, as seen in the waterfall view of GQRX while recording with the RTL-SDR.
 
 <img src="images/gqrx-clone-triggers.png" height="300" alt="GQRX cloning triggers image" >
 
-Next is an Inspectrum window showing a comparison of a packet output from a real E-ZPass reader and from an Osmo-FL2k after using the utilities in this repo. Their similarity shows that the modulation is correctly imitated. However, these two samples were recorded at different RTL-SDR gain values; when recorded with the same settings, the Osmo-FL2k output is barely visible, confirming the need for an amp for successful cloning.
+Next is a window from the spectrum analysis program Inspectrum showing a comparison of a packet output from a real E-ZPass reader and from an Osmo-FL2k after using the utilities in this repo. Their similarity shows that the modulation is correctly imitated. However, these two samples were recorded at different RTL-SDR gain values; when recorded with the same settings, the Osmo-FL2k output is barely visible, confirming the need for an amp for successful cloning.
 
 <img src="images/inspectrum-tollbooth.png" height="300" alt="Real E-ZPass reader packet" > <img src="images/inspectrum-osmo.png" height="300" alt="Osmo-FL2k packet" >
 
