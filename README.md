@@ -18,7 +18,8 @@ Demodulate and dissect radio frequency (RF) packets from toll booth transponders
    - [Receiving and Analyzing](#receiving-and-analyzing)
    - [Transmitting and Cloning (For Research Purposes Only)](#transmitting-and-cloning-for-research-purposes-only)
    - [C++ Disection Script](#c-dissection-script)
-4. [Licenses](#licenses)
+4. [Permalinks](#permalinks)
+5. [Licenses](#licenses)
 
 
 ## Introduction
@@ -32,7 +33,7 @@ The Osmo-FL2k has been tested to properly output modulated data packets; however
 
 This project began as part of the interview process for a summer internship (which graciously let me keep rights to the code). I continued the research to investigate transmitting when I heard of the Osmo-FL2k.
 
-I gave a presentation on this research at BSides Columbus 2019. A video of the presentation and slides is accessible on [this page at IronGeek.](https://www.irongeek.com/i.php?page=videos/bsidescolumbus2019/bsidescmh2019-3-01-e-zhack-an-update-on-sdr-and-toll-booth-reverse-engineering-kyle-westhaus)
+I gave a presentation on this research at BSides Columbus 2019. A video of the presentation and slides is accessible on [the Internet Archive.](https://archive.org/details/BSidesColumbus2019/BSidesCMH2019-303-E-ZHack-An-Update-on-SDR-and-Toll-Booth-Reverse-Engineering-Kyle-Westhaus.mp4)
 
 
 ## Setup
@@ -120,6 +121,32 @@ Input file formatting:
 
 
 ```
+
+
+## Permalinks
+Links in the above text were live at the time I originally published this repository. In the event that link rot should occur, I have verified that the following links point to the intended content. The links make use of the Internet Archive's Wayback Machine.
+
+[Janus Interior Transponders from Kapsch TrafficCom](https://web.archive.org/web/20200504001647/https://www.kapsch.net/ktc/downloads/datasheets/in-vehicle/915/Kapsch-KTC-DS-JANUS_Interior.PDF?lang=en-US)
+
+[TDM Protocol Registration](https://web.archive.org/web/20191102102857/http://tdm.kapschtraffic.com/registration.asp)
+
+[RTL-SDR Purchase](https://web.archive.org/web/20200426174714/https://www.rtl-sdr.com/buy-rtl-sdr-dvb-t-dongles/)
+
+[RTL-SDR Background](https://web.archive.org/web/20200427085759/https://www.rtl-sdr.com/about-rtl-sdr/)
+
+[Osmo-FL2k Purchase](https://web.archive.org/web/20200425144323/https://www.gearbest.com/cables-connectors/pp_1238337.html)
+
+[Osmocom FL2k Wiki](https://web.archive.org/web/20200414204524/https://osmocom.org/projects/osmo-fl2k/wiki)
+
+[915MHz Filter](https://web.archive.org/web/20190409235215/https://www.tindie.com/products/gpio/915-mhz-ism-band-pass-filter-amateur-radio-rfid/)
+
+[915MHz Amplifier](https://web.archive.org/web/20200504004035/https://usa.banggood.com/4_0W-30dB-915MHz-RF-Power-Amplifier-p-1167605.html?gmcCountry=US&currency=USD&cur_warehouse=CN)
+
+[Code for USRP Device](https://web.archive.org/web/20200504004832/https://github.com/pvachon/zepassd)
+
+[Daniel Bahr's single-header CRC++](https://web.archive.org/web/20200504005142/https://github.com/d-bahr/CRCpp)
+
+[Boost Library Getting Started Page](https://web.archive.org/web/20200504005324/https://www.boost.org/doc/libs/1_69_0/more/getting_started/unix-variants.html)
 
 
 ## Licenses
